@@ -31,19 +31,58 @@ export const Raffle: React.FC = () => {
   const [numberOfWinners, setNumberOfWinners] = useState(1);
   const [showSettings, setShowSettings] = useState(false);
   const [selectedDraw, setSelectedDraw] = useState<DrawType>('discovery-70');
-  const [departmentFilter, setDepartmentFilter] = useState<'all' | 'International Messaging' | 'India Messaging' | 'APAC'>('all');
+  const [selectedDepartments, setSelectedDepartments] = useState<string[]>(['all']);
   const [animationPhase, setAnimationPhase] = useState<'idle' | 'shaking' | 'picking' | 'revealing'>('idle');
   const [floatingChits, setFloatingChits] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([]);
 
   useEffect(() => {
     const allContestants = getAllContestants(selectedDraw);
-    if (departmentFilter === 'all') {
+    if (selectedDepartments.includes('all') || selectedDepartments.length === 0) {
       setContestants(allContestants);
     } else {
-      setContestants(getContestantsByDepartment(departmentFilter, selectedDraw));
+      const filteredContestants = allContestants.filter(contestant => 
+        selectedDepartments.includes(contestant.department)
+      );
+      setContestants(filteredContestants);
     }
     setWinners(getWinners(selectedDraw));
-  }, [selectedDraw, departmentFilter]);
+
+  const handleDepartmentChange = (department: string, checked: boolean) => {
+    if (department === 'all') {
+      if (checked) {
+        setSelectedDepartments(['all']);
+      } else {
+        setSelectedDepartments([]);
+      }
+    } else {
+      if (checked) {
+        // Remove 'all' if selecting specific departments
+        const newSelection = selectedDepartments.filter(d => d !== 'all');
+        setSelectedDepartments([...newSelection, department]);
+      } else {
+        const newSelection = selectedDepartments.filter(d => d !== department);
+        // If no departments selected, default to 'all'
+        if (newSelection.length === 0) {
+          setSelectedDepartments(['all']);
+        } else {
+          setSelectedDepartments(newSelection);
+        }
+      }
+    }
+  };
+
+  const getDepartmentDisplayText = () => {
+    if (selectedDepartments.includes('all') || selectedDepartments.length === 0) {
+      return 'All Departments';
+    }
+    if (selectedDepartments.length === 1) {
+      return selectedDepartments[0];
+    }
+    if (selectedDepartments.length === 2) {
+      return selectedDepartments.join(' & ');
+    }
+    return `${selectedDepartments.length} Departments`;
+  };
 
   const triggerConfetti = () => {
     // Main confetti burst
@@ -588,33 +627,44 @@ export const Raffle: React.FC = () => {
                       
                       <div>
                         <label className="block text-white/80 text-sm font-medium mb-3">
-                          Department Filter
+                          Department Selection
                         </label>
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           {[
-                            { value: 'all', label: 'All Departments' },
+                            { value: 'all', label: 'All Departments', count: getAllContestants(selectedDraw).length },
                             { value: 'International Messaging', label: 'International Messaging' },
                             { value: 'India Messaging', label: 'India Messaging' },
                             { value: 'APAC', label: 'APAC' }
                           ].map((option) => (
-                            <label key={option.value} className="flex items-center space-x-3 cursor-pointer">
+                            <label key={option.value} className="flex items-center space-x-3 cursor-pointer group">
                               <input
-                                type="radio"
-                                name="departmentFilter"
-                                value={option.value}
-                                checked={departmentFilter === option.value}
-                                onChange={(e) => setDepartmentFilter(e.target.value as any)}
+                                type="checkbox"
+                                checked={selectedDepartments.includes(option.value)}
+                                onChange={(e) => handleDepartmentChange(option.value, e.target.checked)}
                                 disabled={isDrawing}
-                                className="w-4 h-4 text-blue-500 bg-white/20 border-white/30 focus:ring-blue-500 focus:ring-2"
+                                className="w-4 h-4 text-blue-500 bg-white/20 border-white/30 rounded focus:ring-blue-500 focus:ring-2 group-hover:bg-white/30 transition-colors duration-200"
                               />
-                              <span className="text-white/80 text-sm">{option.label}</span>
-                              <span className="text-white/60 text-xs">
-                                ({option.value === 'all' 
-                                  ? getAllContestants(selectedDraw).length 
-                                  : getContestantsByDepartment(option.value as any, selectedDraw).length} contestants)
+                              <div className="flex-1 flex items-center justify-between">
+                                <span className="text-white/80 text-sm group-hover:text-white transition-colors duration-200">
+                                  {option.label}
+                                </span>
+                                <span className="text-white/60 text-xs bg-white/10 px-2 py-1 rounded-full">
+                                  {option.value === 'all' 
+                                    ? getAllContestants(selectedDraw).length 
+                                    : getContestantsByDepartment(option.value as any, selectedDraw).length} contestants
+                                </span>
+                              </div>
                               </span>
                             </label>
                           ))}
+                        </div>
+                        <div className="mt-3 p-3 bg-blue-500/10 rounded-lg border border-blue-400/20">
+                          <p className="text-blue-200 text-xs">
+                            <strong>Selected:</strong> {getDepartmentDisplayText()} 
+                            <span className="ml-2">
+                              ({contestants.length} contestant{contestants.length !== 1 ? 's' : ''})
+                            </span>
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -637,14 +687,14 @@ export const Raffle: React.FC = () => {
             <h3 className="text-xl font-bold text-white mb-6 flex items-center">
               <Users className="w-6 h-6 mr-2" />
               Eligible Contestants for {currentDrawConfig.name}
-              {departmentFilter !== 'all' && ` - ${departmentFilter}`} ({eligibleContestants.length})
+              {!selectedDepartments.includes('all') && selectedDepartments.length > 0 && ` - ${getDepartmentDisplayText()}`} ({eligibleContestants.length})
             </h3>
             <div className="mb-4 p-4 bg-white/10 rounded-lg">
               <p className="text-white/80 text-sm">
                 <strong>Ticket-based probability:</strong> Contestants with more tickets have higher chances of winning.
-                {departmentFilter !== 'all' && (
+                {!selectedDepartments.includes('all') && selectedDepartments.length > 0 && (
                   <span className="block mt-1">
-                    <strong>Department filter:</strong> Only showing contestants from {departmentFilter}
+                    <strong>Department filter:</strong> Only showing contestants from {getDepartmentDisplayText()}
                   </span>
                 )}
                 Total tickets in pool: <span className="text-yellow-400 font-bold">{totalTickets}</span>
