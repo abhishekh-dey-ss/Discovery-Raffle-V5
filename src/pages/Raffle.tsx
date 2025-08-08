@@ -7,7 +7,7 @@ import GlassCard from '../components/GlassCard';
 import { Trophy, Users, Clock, Play, Settings, Sparkles, Ticket } from 'lucide-react';
 import type { Contestant, Winner, DrawType } from '../types';
 import { getWinners, addWinner } from '../utils/storage';
-import { getAllContestants, drawWinners } from '../utils/raffle';
+import { getAllContestants, drawWinners, getContestantsByDepartment } from '../utils/raffle';
 
 const drawConfigs = [
   {
@@ -31,13 +31,19 @@ export const Raffle: React.FC = () => {
   const [numberOfWinners, setNumberOfWinners] = useState(1);
   const [showSettings, setShowSettings] = useState(false);
   const [selectedDraw, setSelectedDraw] = useState<DrawType>('discovery-70');
+  const [departmentFilter, setDepartmentFilter] = useState<'all' | 'International Messaging' | 'India Messaging' | 'APAC'>('all');
   const [animationPhase, setAnimationPhase] = useState<'idle' | 'shaking' | 'picking' | 'revealing'>('idle');
   const [floatingChits, setFloatingChits] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([]);
 
   useEffect(() => {
-    setContestants(getAllContestants(selectedDraw));
+    const allContestants = getAllContestants(selectedDraw);
+    if (departmentFilter === 'all') {
+      setContestants(allContestants);
+    } else {
+      setContestants(getContestantsByDepartment(departmentFilter, selectedDraw));
+    }
     setWinners(getWinners(selectedDraw));
-  }, [selectedDraw]);
+  }, [selectedDraw, departmentFilter]);
 
   const triggerConfetti = () => {
     // Main confetti burst
@@ -579,6 +585,38 @@ export const Raffle: React.FC = () => {
                           Maximum: {maxWinners} (based on eligible contestants)
                         </p>
                       </div>
+                      
+                      <div>
+                        <label className="block text-white/80 text-sm font-medium mb-3">
+                          Department Filter
+                        </label>
+                        <div className="space-y-2">
+                          {[
+                            { value: 'all', label: 'All Departments' },
+                            { value: 'International Messaging', label: 'International Messaging' },
+                            { value: 'India Messaging', label: 'India Messaging' },
+                            { value: 'APAC', label: 'APAC' }
+                          ].map((option) => (
+                            <label key={option.value} className="flex items-center space-x-3 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="departmentFilter"
+                                value={option.value}
+                                checked={departmentFilter === option.value}
+                                onChange={(e) => setDepartmentFilter(e.target.value as any)}
+                                disabled={isDrawing}
+                                className="w-4 h-4 text-blue-500 bg-white/20 border-white/30 focus:ring-blue-500 focus:ring-2"
+                              />
+                              <span className="text-white/80 text-sm">{option.label}</span>
+                              <span className="text-white/60 text-xs">
+                                ({option.value === 'all' 
+                                  ? getAllContestants(selectedDraw).length 
+                                  : getContestantsByDepartment(option.value as any, selectedDraw).length} contestants)
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </GlassCard>
                 </motion.div>
@@ -598,11 +636,17 @@ export const Raffle: React.FC = () => {
           <GlassCard className="p-6">
             <h3 className="text-xl font-bold text-white mb-6 flex items-center">
               <Users className="w-6 h-6 mr-2" />
-              Eligible Contestants for {currentDrawConfig.name} ({eligibleContestants.length})
+              Eligible Contestants for {currentDrawConfig.name}
+              {departmentFilter !== 'all' && ` - ${departmentFilter}`} ({eligibleContestants.length})
             </h3>
             <div className="mb-4 p-4 bg-white/10 rounded-lg">
               <p className="text-white/80 text-sm">
-                <strong>Ticket-based probability:</strong> Contestants with more tickets have higher chances of winning. 
+                <strong>Ticket-based probability:</strong> Contestants with more tickets have higher chances of winning.
+                {departmentFilter !== 'all' && (
+                  <span className="block mt-1">
+                    <strong>Department filter:</strong> Only showing contestants from {departmentFilter}
+                  </span>
+                )}
                 Total tickets in pool: <span className="text-yellow-400 font-bold">{totalTickets}</span>
               </p>
             </div>
